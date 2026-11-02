@@ -26,7 +26,7 @@ try {
   for ($i = 0; $i -lt 30; $i++) {
     Start-Sleep -Milliseconds 500
     try {
-      $health = Invoke-WebRequest -Uri 'http://localhost:5173/__health' -UseBasicParsing -TimeoutSec 2
+      $health = Invoke-WebRequest -Uri 'http://127.0.0.1:5173/__health' -UseBasicParsing -TimeoutSec 2 -ErrorAction SilentlyContinue
       if ($health.StatusCode -eq 200) {
         Write-Host "CAMPAIGN 04 is live at http://localhost:5173/ (PID $($process.Id))"
         exit 0
