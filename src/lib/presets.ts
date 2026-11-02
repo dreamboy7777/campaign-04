@@ -1,4 +1,5 @@
 import type { Controls, NavItem, StylePreset, TypographySpec } from './types'
+import { seedUrl } from './assetUrl'
 
 export const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard', index: '01', label: 'Dashboard', sub: 'The front desk', group: 'STUDIO' },
@@ -83,7 +84,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     negative: 'editorial glamour, heavy retouching, studio backdrop, luxury styling, perfect symmetry, text, watermark',
     film: 'Kodak Gold consumer film',
     controls: { nostalgia: 78, editorial: 34, commercial: 74, imperfection: 62, intimacy: 74, flash: 86, minimalism: 68, color: 28, typography: 22 },
-    cover: '/seed/portrait-wall.webp',
+    cover: seedUrl('portrait-wall.webp'),
     coverPosition: '50% 28%',
   },
   {
@@ -106,7 +107,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     negative: 'corporate, catalogue, symmetric, soft focus, clean studio, text, watermark',
     film: 'Fuji Superia 400',
     controls: { nostalgia: 58, editorial: 88, commercial: 28, imperfection: 70, intimacy: 56, flash: 68, minimalism: 24, color: 74, surrealism: 34, typography: 78 },
-    cover: '/seed/editorial-red.webp',
+    cover: seedUrl('editorial-red.webp'),
     coverPosition: '50% 20%',
   },
   {
@@ -129,7 +130,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     negative: 'professional studio, luxury, clean minimalism, sharp commercial lighting, text, watermark',
     film: '2000s compact digital',
     controls: { nostalgia: 88, editorial: 30, commercial: 12, imperfection: 84, intimacy: 92, flash: 58, minimalism: 18, color: 24, surrealism: 22, typography: 52 },
-    cover: '/seed/mirror-tumblr.webp',
+    cover: seedUrl('mirror-tumblr.webp'),
     coverPosition: '50% 30%',
   },
   {
@@ -152,7 +153,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     negative: 'studio lighting, posed, luxury, clean, sharp focus, professional retouching, text, watermark',
     film: 'Nightlife flash',
     controls: { nostalgia: 74, editorial: 44, commercial: 20, imperfection: 92, intimacy: 78, flash: 96, minimalism: 12, color: 38, surrealism: 18, typography: 62 },
-    cover: '/seed/bedroom-flash.webp',
+    cover: seedUrl('bedroom-flash.webp'),
     coverPosition: '50% 30%',
   },
   {
@@ -175,7 +176,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     negative: 'digital clean, glossy, colour graded, luxury, perfect layout, text, watermark',
     film: 'Washed-out magazine scan',
     controls: { nostalgia: 82, editorial: 72, commercial: 8, imperfection: 88, intimacy: 58, flash: 64, minimalism: 26, color: 18, surrealism: 42, typography: 94 },
-    cover: '/seed/zine-desk.webp',
+    cover: seedUrl('zine-desk.webp'),
     coverPosition: '50% 50%',
   },
   {
@@ -198,7 +199,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     negative: 'modern, sharp digital, neon, streetwear, harsh flash, plastic, text, watermark',
     film: 'Faded colour print',
     controls: { nostalgia: 94, editorial: 76, commercial: 56, imperfection: 46, intimacy: 66, flash: 16, minimalism: 58, color: 30, surrealism: 26, typography: 68 },
-    cover: '/seed/perfume-flowers.webp',
+    cover: seedUrl('perfume-flowers.webp'),
     coverPosition: '50% 45%',
   },
   {
@@ -221,7 +222,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     negative: 'professional campaign, studio, fashion editorial, perfect retouching, text, watermark',
     film: '35mm consumer film',
     controls: { nostalgia: 80, editorial: 28, commercial: 14, imperfection: 66, intimacy: 72, flash: 28, minimalism: 30, color: 40, surrealism: 10, typography: 18 },
-    cover: '/seed/night-drive.webp',
+    cover: seedUrl('night-drive.webp'),
     coverPosition: '50% 50%',
   },
   {
@@ -244,7 +245,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     negative: 'studio, minimal, luxury, soft focus, empty background, text, watermark',
     film: 'Fuji Superia 400',
     controls: { nostalgia: 74, editorial: 60, commercial: 44, imperfection: 58, intimacy: 52, flash: 54, minimalism: 18, color: 70, surrealism: 14, typography: 76 },
-    cover: '/seed/cover-closeup.webp',
+    cover: seedUrl('cover-closeup.webp'),
     coverPosition: '50% 18%',
   },
   {
@@ -267,7 +268,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     negative: 'bright, cheerful, commercial catalogue, neon, plastic, overexposed, text, watermark',
     film: 'Expired film',
     controls: { nostalgia: 86, editorial: 84, commercial: 24, imperfection: 52, intimacy: 80, flash: 34, minimalism: 42, color: 24, surrealism: 34, typography: 58 },
-    cover: '/seed/portrait-wall.webp',
+    cover: seedUrl('portrait-wall.webp'),
     coverPosition: '50% 22%',
   },
   {
@@ -290,7 +291,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     negative: 'commercial, glamour, conventional beauty, stock photo, text, watermark',
     film: '2000s compact digital',
     controls: { nostalgia: 46, editorial: 74, commercial: 12, imperfection: 54, intimacy: 32, flash: 44, minimalism: 76, color: 58, surrealism: 78, typography: 82 },
-    cover: '/seed/zine-desk.webp',
+    cover: seedUrl('zine-desk.webp'),
     coverPosition: '50% 40%',
   },
   {
@@ -313,7 +314,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     negative: 'commercial catalogue, harsh flash, neon, perfect retouching, text, watermark',
     film: 'Soft-focus portrait',
     controls: { nostalgia: 72, editorial: 92, commercial: 34, imperfection: 42, intimacy: 76, flash: 18, minimalism: 58, color: 30, surrealism: 24, typography: 54 },
-    cover: '/seed/hero-perfume.webp',
+    cover: seedUrl('hero-perfume.webp'),
     coverPosition: '50% 40%',
   },
   {
@@ -336,7 +337,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     negative: 'chaotic, nightlife, heavy grain, flash, experimental, text, watermark',
     film: 'Clean digital',
     controls: { nostalgia: 28, editorial: 30, commercial: 94, imperfection: 16, intimacy: 38, flash: 8, minimalism: 92, color: 14, surrealism: 6, typography: 30 },
-    cover: '/seed/clothing-rail.webp',
+    cover: seedUrl('clothing-rail.webp'),
     coverPosition: '50% 50%',
   },
   {
@@ -359,7 +360,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     negative: 'studio, luxury hotel, harsh flash, commercial catalogue, neon, text, watermark',
     film: 'Soft-focus portrait',
     controls: { nostalgia: 78, editorial: 64, commercial: 48, imperfection: 54, intimacy: 94, flash: 24, minimalism: 50, color: 22, surrealism: 14, typography: 46 },
-    cover: '/seed/mirror-tumblr.webp',
+    cover: seedUrl('mirror-tumblr.webp'),
     coverPosition: '50% 40%',
   },
   {
@@ -382,7 +383,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     negative: 'modern minimal, daylight studio, plastic, cheap, sharp digital, text, watermark',
     film: 'Faded colour print',
     controls: { nostalgia: 96, editorial: 70, commercial: 86, imperfection: 38, intimacy: 72, flash: 12, minimalism: 54, color: 34, surrealism: 32, typography: 74 },
-    cover: '/seed/perfume-flowers.webp',
+    cover: seedUrl('perfume-flowers.webp'),
     coverPosition: '50% 60%',
   },
   {
@@ -405,7 +406,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     negative: 'smiling, colourful, commercial catalogue, soft light, romantic, text, watermark',
     film: 'Analog black and white',
     controls: { nostalgia: 64, editorial: 82, commercial: 40, imperfection: 48, intimacy: 58, flash: 82, minimalism: 62, color: 12, surrealism: 28, typography: 70 },
-    cover: '/seed/editorial-red.webp',
+    cover: seedUrl('editorial-red.webp'),
     coverPosition: '50% 18%',
   },
   {
@@ -428,7 +429,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     negative: 'professional campaign, studio, perfect composition, luxury, text, watermark',
     film: 'Expired film',
     controls: { nostalgia: 90, editorial: 32, commercial: 10, imperfection: 84, intimacy: 86, flash: 34, minimalism: 28, color: 42, surrealism: 16, typography: 36 },
-    cover: '/seed/night-drive.webp',
+    cover: seedUrl('night-drive.webp'),
     coverPosition: '50% 50%',
   },
   {
@@ -451,7 +452,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     negative: 'film grain, professional, studio, high dynamic range, luxury, text, watermark',
     film: '2000s compact digital',
     controls: { nostalgia: 92, editorial: 28, commercial: 18, imperfection: 80, intimacy: 70, flash: 78, minimalism: 22, color: 56, surrealism: 18, typography: 32 },
-    cover: '/seed/bedroom-flash.webp',
+    cover: seedUrl('bedroom-flash.webp'),
     coverPosition: '50% 25%',
   },
   {
@@ -474,7 +475,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     negative: 'lifestyle, domestic, soft light, catalogue, text, watermark',
     film: 'Clean digital',
     controls: { nostalgia: 34, editorial: 72, commercial: 76, imperfection: 34, intimacy: 26, flash: 88, minimalism: 70, color: 68, surrealism: 84, typography: 62 },
-    cover: '/seed/hero-perfume.webp',
+    cover: seedUrl('hero-perfume.webp'),
     coverPosition: '50% 30%',
   },
   {
@@ -497,7 +498,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     negative: 'polished, colour, studio, fashion, clean, text, watermark',
     film: 'Analog black and white',
     controls: { nostalgia: 72, editorial: 54, commercial: 16, imperfection: 90, intimacy: 64, flash: 90, minimalism: 20, color: 8, surrealism: 20, typography: 84 },
-    cover: '/seed/bedroom-flash.webp',
+    cover: seedUrl('bedroom-flash.webp'),
     coverPosition: '50% 20%',
   },
   {
@@ -520,7 +521,7 @@ export const STYLE_PRESETS: StylePreset[] = [
     negative: 'flash, nightlife, chaotic, neon, fast fashion, text, watermark',
     film: 'Clean digital',
     controls: { nostalgia: 46, editorial: 64, commercial: 78, imperfection: 30, intimacy: 50, flash: 14, minimalism: 84, color: 18, surrealism: 12, typography: 44 },
-    cover: '/seed/clothing-rail.webp',
+    cover: seedUrl('clothing-rail.webp'),
     coverPosition: '50% 40%',
   },
 ]

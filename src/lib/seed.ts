@@ -1,5 +1,6 @@
 import type { Asset, Brand, Campaign, CustomStyle, Project, Reference, BlogIdentity, BlogPost, ZineIssue, ZinePage } from './types'
 import { STYLE_MAP, DEFAULT_CONTROLS } from './presets'
+import { seedUrl } from './assetUrl'
 
 const now = Date.now()
 const daysAgo = (n: number) => now - n * 86400000
@@ -14,7 +15,7 @@ const A = (input: Partial<Asset> & { id: string; src: string; title: string }): 
 export const SEED_ASSETS: Asset[] = [
   A({
     id: 'seed-perfume',
-    src: '/seed/hero-perfume.webp',
+    src: seedUrl('hero-perfume.webp'),
     title: 'Untitled (Bottle, Morning)',
     kind: 'still life',
     collection: 'Perfume & still life',
@@ -34,7 +35,7 @@ export const SEED_ASSETS: Asset[] = [
   }),
   A({
     id: 'seed-portrait-wall',
-    src: '/seed/portrait-wall.webp',
+    src: seedUrl('portrait-wall.webp'),
     title: 'Untitled (White Tank)',
     collection: 'Fashion photography',
     palette: ['#e4d8c7', '#b9a68d', '#8a7461', '#2d2a26', '#c98c78'],
@@ -53,7 +54,7 @@ export const SEED_ASSETS: Asset[] = [
   }),
   A({
     id: 'seed-bedroom-flash',
-    src: '/seed/bedroom-flash.webp',
+    src: seedUrl('bedroom-flash.webp'),
     title: 'Untitled (Bedroom, 2:14am)',
     collection: 'Nightlife',
     kind: 'photograph',
@@ -72,7 +73,7 @@ export const SEED_ASSETS: Asset[] = [
   }),
   A({
     id: 'seed-night-drive',
-    src: '/seed/night-drive.webp',
+    src: seedUrl('night-drive.webp'),
     title: 'Untitled (Drive Home)',
     collection: 'Tumblr / diary',
     kind: 'photograph',
@@ -91,7 +92,7 @@ export const SEED_ASSETS: Asset[] = [
   }),
   A({
     id: 'seed-editorial-red',
-    src: '/seed/editorial-red.webp',
+    src: seedUrl('editorial-red.webp'),
     title: 'Untitled (Red Slip)',
     collection: 'Fashion photography',
     kind: 'editorial',
@@ -111,7 +112,7 @@ export const SEED_ASSETS: Asset[] = [
   }),
   A({
     id: 'seed-perfume-flowers',
-    src: '/seed/perfume-flowers.webp',
+    src: seedUrl('perfume-flowers.webp'),
     title: 'Untitled (Roses, Marble)',
     kind: 'still life',
     collection: 'Vintage advertisements',
@@ -130,7 +131,7 @@ export const SEED_ASSETS: Asset[] = [
   }),
   A({
     id: 'seed-zine-desk',
-    src: '/seed/zine-desk.webp',
+    src: seedUrl('zine-desk.webp'),
     title: 'Untitled (Zine in Progress)',
     kind: 'still life',
     collection: 'Typography',
@@ -149,7 +150,7 @@ export const SEED_ASSETS: Asset[] = [
   }),
   A({
     id: 'seed-mirror',
-    src: '/seed/mirror-tumblr.webp',
+    src: seedUrl('mirror-tumblr.webp'),
     title: 'Untitled (Mirror, 2012)',
     collection: 'Tumblr / diary',
     kind: 'photograph',
@@ -168,7 +169,7 @@ export const SEED_ASSETS: Asset[] = [
   }),
   A({
     id: 'seed-clothing-rail',
-    src: '/seed/clothing-rail.webp',
+    src: seedUrl('clothing-rail.webp'),
     title: 'Untitled (Rail, Studio)',
     kind: 'still life',
     collection: 'Fashion photography',
@@ -187,7 +188,7 @@ export const SEED_ASSETS: Asset[] = [
   }),
   A({
     id: 'seed-cover-closeup',
-    src: '/seed/cover-closeup.webp',
+    src: seedUrl('cover-closeup.webp'),
     title: 'Untitled (Freckles)',
     kind: 'editorial',
     collection: 'Fashion photography',
