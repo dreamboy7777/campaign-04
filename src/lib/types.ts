@@ -281,6 +281,11 @@ export interface ZineTextTransform {
   x: number
   y: number
   scale: number
+  color?: string
+  font?: string
+  weight?: number
+  italic?: boolean
+  align?: 'left' | 'center' | 'right'
 }
 
 export type ZineTextLayout = Partial<Record<ZineTextBlock, ZineTextTransform>>

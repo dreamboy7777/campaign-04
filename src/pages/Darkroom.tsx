@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import {
   Aperture, RotateCcw, RotateCw, FlipHorizontal2, Download, Save, Plus, Trash2,
   Eye, EyeOff, Type, Square, Undo2, Redo2, X, ChevronDown, Image as ImageIcon,
@@ -9,7 +9,7 @@ import { useApp, uid } from '../lib/store'
 import { FILM_PRESETS, FONT_LIBRARY } from '../lib/presets'
 import {
   DEFAULT_ADJUSTMENTS, DEFAULT_CROP, DEFAULT_DARKROOM, renderDarkroom,
-  type Adjustments, type CropState, type DarkroomState, type TextLayer,
+  type Adjustments, type CropState, type DarkroomCanvas, type DarkroomLayerBox, type DarkroomState, type TextLayer,
 } from '../lib/imaging'
 import { loadImage, canvasToBlob, downloadBlob, saveAssetBlob } from '../lib/imageStore'
 
@@ -83,7 +83,12 @@ export function Darkroom() {
   const [compare, setCompare] = useState(false)
   const [working, setWorking] = useState(false)
   const [imageReady, setImageReady] = useState(false)
+  const [layerBoxes, setLayerBoxes] = useState<Record<string, DarkroomLayerBox>>({})
+  const [canvasBox, setCanvasBox] = useState({ left: 0, top: 0, width: 0, height: 0 })
+  const [showLayerTools, setShowLayerTools] = useState(false)
   const previewRef = useRef<HTMLCanvasElement>(null)
+  const canvasWrapRef = useRef<HTMLDivElement>(null)
+  const layerTextRef = useRef<HTMLTextAreaElement>(null)
   const originalImgRef = useRef<HTMLImageElement | null>(null)
   const lastPush = useRef(0)
 
@@ -113,12 +118,43 @@ export function Darkroom() {
     const ctx = canvas.getContext('2d')!
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.drawImage(rendered, 0, 0)
+    setLayerBoxes((rendered as DarkroomCanvas).layerBoxes ?? {})
   }
 
   useEffect(() => {
     if (imageReady) draw()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageReady, draft, showSafe, assetId])
+
+  useEffect(() => {
+    const canvas = previewRef.current
+    const wrap = canvasWrapRef.current
+    if (!canvas || !wrap) return
+    const measure = () => {
+      const canvasRect = canvas.getBoundingClientRect()
+      const wrapRect = wrap.getBoundingClientRect()
+      const next = {
+        left: canvasRect.left - wrapRect.left,
+        top: canvasRect.top - wrapRect.top,
+        width: canvasRect.width,
+        height: canvasRect.height,
+      }
+      setCanvasBox((prev) =>
+        prev.left === next.left && prev.top === next.top && prev.width === next.width && prev.height === next.height
+          ? prev
+          : next,
+      )
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(canvas)
+    observer.observe(wrap)
+    window.addEventListener('resize', measure)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [imageReady, assetId])
 
   const apply = (next: DarkroomState) => {
     const now = Date.now()
@@ -195,6 +231,33 @@ export function Darkroom() {
   }
 
   const layer = draft.layers.find((l) => l.id === selectedLayer)
+  const layerBox = selectedLayer ? layerBoxes[selectedLayer] : undefined
+  const layerToolbarStyle = layerBox
+    ? (layerBox.y + layerBox.h) < 0.55
+      ? { top: `${Math.min(86, (layerBox.y + layerBox.h + 0.015) * 100)}%`, bottom: 'auto' }
+      : { bottom: `${Math.min(86, (1 - layerBox.y + 0.015) * 100)}%`, top: 'auto' }
+    : undefined
+
+  const selectLayerAt = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    const canvas = previewRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    const nx = (event.clientX - rect.left) / rect.width
+    const ny = (event.clientY - rect.top) / rect.height
+    const pad = 0.01
+    const hit = (Object.entries(layerBoxes) as [string, DarkroomLayerBox][])
+      .filter(([id]) => draft.layers.find((item) => item.id === id && item.type === 'text')?.visible)
+      .filter(([, box]) =>
+        nx >= box.x - pad && nx <= box.x + box.w + pad &&
+        ny >= box.y - pad && ny <= box.y + box.h + pad,
+      )
+      .sort((a, b) => a[1].w * a[1].h - b[1].w * b[1].h)[0]?.[0]
+    if (!hit) return
+    setSelectedLayer(hit)
+    setTab('type')
+    setShowLayerTools(true)
+    requestAnimationFrame(() => layerTextRef.current?.focus())
+  }
 
   const exportImage = async (mode: 'download' | 'archive') => {
     const img = originalImgRef.current
@@ -317,7 +380,7 @@ export function Darkroom() {
                 {draft.layers.length === 0 && <p className="mini-note">No layers yet. Type is part of the image, not a caption added afterwards.</p>}
                 <div className="layer-list">
                   {draft.layers.map((l, i) => (
-                    <div key={l.id} className={`layer-row ${selectedLayer === l.id ? 'active' : ''}`} onClick={() => setSelectedLayer(l.id)}>
+                    <div key={l.id} className={`layer-row ${selectedLayer === l.id ? 'active' : ''}`} onClick={() => { setSelectedLayer(l.id); setShowLayerTools(true) }}>
                       <span className="mono-xs">{String(i + 1).padStart(2, '0')}</span>
                       <span className="layer-row-name">{l.type === 'shape' ? 'RULE' : l.text || 'TEXT'}</span>
                       <button onClick={(e) => { e.stopPropagation(); patchLayer(l.id, { visible: !l.visible }) }}>{l.visible ? <Eye size={11} /> : <EyeOff size={11} />}</button>
@@ -328,7 +391,7 @@ export function Darkroom() {
                 {layer && (
                   <div className="layer-editor">
                     {layer.type === 'text' ? (
-                      <textarea className="textarea" value={layer.text} onChange={(e) => patchLayer(layer.id, { text: e.target.value })} rows={2} />
+                      <textarea ref={layerTextRef} className="textarea" value={layer.text} onChange={(e) => patchLayer(layer.id, { text: e.target.value })} rows={2} />
                     ) : null}
                     <div className="field"><label>FONT</label>
                       <select className="select" value={layer.font} onChange={(e) => patchLayer(layer.id, { font: e.target.value })}>
@@ -392,14 +455,62 @@ export function Darkroom() {
             </div>
           </div>
 
-          <div className={`darkroom-canvas-wrap ${compare ? 'is-compare' : ''}`}>
+          <div className={`darkroom-canvas-wrap ${compare ? 'is-compare' : ''}`} ref={canvasWrapRef}>
             {compare && asset ? <img className="darkroom-original" src={asset.src} alt={asset.title} /> : null}
-            <canvas ref={previewRef} className="darkroom-canvas" />
+            <canvas
+              ref={previewRef}
+              className={`darkroom-canvas ${draft.layers.length ? 'darkroom-canvas--editable' : ''}`}
+              onClick={selectLayerAt}
+            />
+            {!compare && layerBox && canvasBox.width > 0 && (
+              <div
+                className="darkroom-layer-overlay"
+                style={{ left: canvasBox.left, top: canvasBox.top, width: canvasBox.width, height: canvasBox.height }}
+              >
+                <div
+                  className="darkroom-layer-selection"
+                  style={{
+                    left: `${layerBox.x * 100}%`,
+                    top: `${layerBox.y * 100}%`,
+                    width: `${layerBox.w * 100}%`,
+                    height: `${layerBox.h * 100}%`,
+                  }}
+                />
+                {showLayerTools && layer?.type === 'text' && (
+                  <div className="darkroom-layer-toolbar" style={layerToolbarStyle} onPointerDown={(event) => event.stopPropagation()}>
+                    <span className="darkroom-layer-toolbar-title">TEXT / {layer.text.slice(0, 18) || 'UNTITLED'}</span>
+                    <button type="button" className="zine-tool-btn" title="Make smaller" onClick={() => patchLayer(layer.id, { size: Math.max(1, layer.size - 0.5) })}>A−</button>
+                    <span className="zine-tool-value">{layer.size}</span>
+                    <button type="button" className="zine-tool-btn" title="Make larger" onClick={() => patchLayer(layer.id, { size: Math.min(22, layer.size + 0.5) })}>A+</button>
+                    <label className="zine-tool-color" title="Text colour">
+                      <span style={{ background: layer.color }} />
+                      <input type="color" value={layer.color} onChange={(event) => patchLayer(layer.id, { color: event.target.value })} />
+                    </label>
+                    <select
+                      className="zine-tool-select"
+                      title="Font"
+                      value={layer.font}
+                      onChange={(event) => patchLayer(layer.id, { font: event.target.value })}
+                    >
+                      {FONT_LIBRARY.map((font) => <option key={font.name} value={font.css}>{font.name}</option>)}
+                    </select>
+                    <button
+                      type="button"
+                      className={`zine-tool-btn zine-tool-italic ${layer.italic ? 'active' : ''}`}
+                      title="Italic"
+                      onClick={() => patchLayer(layer.id, { italic: !layer.italic })}
+                    ><em>I</em></button>
+                    <button type="button" className="zine-tool-btn zine-tool-words" onClick={() => layerTextRef.current?.focus()}>EDIT WORDS</button>
+                    <button type="button" className="zine-tool-btn zine-tool-close" title="Close" onClick={() => setShowLayerTools(false)}>×</button>
+                  </div>
+                )}
+              </div>
+            )}
             {!imageReady && <div className="darkroom-loading"><span className="loading-line" /><span className="mono-xs muted">LOADING PLATE…</span></div>}
             <div className="darkroom-canvas-meta">
               <span>{draft.crop.aspect === 'original' ? 'ORIGINAL CROP' : draft.crop.aspect}</span>
               <span>{Math.round(draft.crop.zoom * 100)}% · {draft.crop.rotation}°</span>
-              <span>{compare ? 'ORIGINAL VISIBLE' : 'DEVELOPED PREVIEW'}</span>
+              <span>{compare ? 'ORIGINAL VISIBLE' : draft.layers.length ? 'CLICK TEXT TO EDIT' : 'DEVELOPED PREVIEW'}</span>
             </div>
           </div>
 

@@ -2040,6 +2040,51 @@ html[data-theme='night'] .archive-card-meta h3 {
   object-fit: contain;
   box-shadow: 0 26px 70px -20px rgba(0, 0, 0, 0.9);
 }
+.darkroom-canvas--editable {
+  cursor: text;
+}
+.darkroom-layer-overlay {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+}
+.darkroom-layer-selection {
+  position: absolute;
+  min-width: 10px;
+  min-height: 8px;
+  border: 1px dashed var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  pointer-events: none;
+}
+.darkroom-layer-toolbar {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 5px 6px;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+  font-family: var(--font-mono);
+  font-size: 6px;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+.darkroom-layer-toolbar-title {
+  max-width: 120px;
+  overflow: hidden;
+  padding-right: 4px;
+  color: var(--accent);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .darkroom-original {
   position: absolute;
   inset: 22px;
@@ -3703,6 +3748,105 @@ html[data-theme='night'] .zine-rail-meta span {
   background: currentColor;
   flex: 0 0 auto;
 }
+.zine-canvas--editable {
+  cursor: text;
+}
+.zine-text-selection {
+  position: absolute;
+  z-index: 3;
+  min-width: 10px;
+  min-height: 8px;
+  border: 1px dashed var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  pointer-events: none;
+}
+.zine-text-toolbar {
+  position: absolute;
+  z-index: 6;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 5px 6px;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  pointer-events: auto;
+  font-family: var(--font-mono);
+  font-size: 6px;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+.zine-text-toolbar-title {
+  padding-right: 5px;
+  color: var(--accent);
+  font-weight: 500;
+}
+.zine-tool-value {
+  min-width: 22px;
+  text-align: center;
+  color: var(--muted);
+}
+.zine-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 18px;
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 7px;
+  line-height: 1;
+}
+.zine-tool-btn:hover,
+.zine-tool-btn.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--surface);
+}
+.zine-tool-color {
+  position: relative;
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+.zine-tool-color span {
+  position: absolute;
+  inset: 2px;
+  display: block;
+}
+.zine-tool-color input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.zine-tool-select {
+  height: 18px;
+  max-width: 105px;
+  padding: 0 3px;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 6px;
+}
+.zine-tool-weight { max-width: 58px; }
+.zine-tool-group { display: inline-flex; }
+.zine-tool-group .zine-tool-btn { margin-left: -1px; }
+.zine-tool-italic em { font-family: var(--font-serif); font-size: 9px; }
+.zine-tool-words { padding: 0 5px; color: var(--accent); }
+.zine-tool-close { margin-left: 1px; color: var(--muted); }
 .zine-stage-foot { grid-template-columns: repeat(4, auto) 1fr; }
 .zine-block {
   display: grid;
@@ -4018,6 +4162,67 @@ html[data-theme='night'] .zine-colophon > div:first-child p {
 .zine-text-actions .mini-link {
   font-size: 6px;
 }
+.zine-type-style-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+.zine-type-style-row > label,
+.zine-type-align > span {
+  display: grid;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 6px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.zine-type-style-row select {
+  height: 22px;
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 6px;
+}
+.zine-type-color {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+.zine-type-color input {
+  width: 28px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: transparent;
+}
+.zine-type-align {
+  display: grid;
+  gap: 3px;
+}
+.zine-type-align > div {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+.zine-type-align button {
+  height: 22px;
+  border: 1px solid var(--line);
+  border-right: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 8px;
+}
+.zine-type-align button:last-child { border-right: 1px solid var(--line); }
+.zine-type-align button:hover,
+.zine-type-align button.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 11%, transparent);
+  color: var(--accent);
+}
+.zine-type-align em { font-family: var(--font-serif); font-size: 11px; }
 
 /* 20-page preset */
 .preset-sheet {

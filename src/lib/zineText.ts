@@ -52,6 +52,11 @@ export function textTransform(
     x: override?.x ?? fallback.x,
     y: override?.y ?? fallback.y,
     scale: override?.scale ?? fallback.scale,
+    color: override?.color,
+    font: override?.font,
+    weight: override?.weight,
+    italic: override?.italic,
+    align: override?.align,
   }
 }
 

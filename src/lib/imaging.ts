@@ -78,6 +78,17 @@ export interface DarkroomState {
   layers: TextLayer[]
 }
 
+export interface DarkroomLayerBox {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+export interface DarkroomCanvas extends HTMLCanvasElement {
+  layerBoxes?: Record<string, DarkroomLayerBox>
+}
+
 export const DEFAULT_DARKROOM: DarkroomState = {
   adjustments: { ...DEFAULT_ADJUSTMENTS },
   crop: { ...DEFAULT_CROP },
@@ -369,6 +380,7 @@ export function renderDarkroom(
     }
   }
 
+  const layerBoxes: Record<string, DarkroomLayerBox> = {}
   for (const layer of state.layers) {
     if (!layer.visible) continue
     ctx.save()
@@ -380,6 +392,12 @@ export function renderDarkroom(
     ctx.textAlign = layer.align
     if (layer.type === 'shape') {
       ctx.fillRect(-width * 0.06, -height * 0.002, width * 0.12, Math.max(1, layer.size))
+      layerBoxes[layer.id] = {
+        x: ((layer.x / 100) * width - width * 0.06) / width,
+        y: ((layer.y / 100) * height - height * 0.002) / height,
+        w: (width * 0.12) / width,
+        h: Math.max(1, layer.size) / height,
+      }
     } else {
       const size = (layer.size / 100) * height
       ctx.font = `${layer.italic ? 'italic ' : ''}${layer.weight} ${size}px ${layer.font}`
@@ -387,6 +405,22 @@ export function renderDarkroom(
       lines.forEach((line, i) => {
         drawSpacedText(ctx, line, 0, i * size * 1.12, layer.letterSpacing)
       })
+      let measured = 0
+      for (const line of lines) {
+        const chars = [...line]
+        const widths = chars.map((char) => ctx.measureText(char).width)
+        const widthOfLine = widths.reduce((sum, value) => sum + value, 0) + layer.letterSpacing * Math.max(0, chars.length - 1)
+        measured = Math.max(measured, widthOfLine)
+      }
+      let left = 0
+      if (layer.align === 'center') left = -measured / 2
+      else if (layer.align === 'right') left = -measured
+      layerBoxes[layer.id] = {
+        x: ((layer.x / 100) * width + left) / width,
+        y: ((layer.y / 100) * height - size * 0.84) / height,
+        w: measured / width,
+        h: (size * 0.84 + Math.max(0, lines.length - 1) * size * 1.12 + size * 0.16) / height,
+      }
     }
     ctx.restore()
   }
@@ -399,7 +433,19 @@ export function renderDarkroom(
     ctx.strokeRect(width * 0.08, height * 0.08, width * 0.84, height * 0.84)
     ctx.restore()
   }
+  ;(canvas as DarkroomCanvas).layerBoxes = layerBoxes
   return canvas
+}
+
+export interface ZineTextRect {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+export interface LayoutCanvas extends HTMLCanvasElement {
+  zineTextBoxes?: Partial<Record<ZineTextBlock, ZineTextRect>>
 }
 
 export interface LayoutConfig {
@@ -671,6 +717,44 @@ export async function renderLayout(config: LayoutConfig, images: Record<string, 
   // zine cover / page
   const zineLayout = config.zineLayout ?? 'standard'
   const tt = (block: ZineTextBlock) => textTransform(zineLayout, config.textLayout, block)
+  const boxes: Partial<Record<ZineTextBlock, ZineTextRect>> = {}
+
+  const finish = () => {
+    ;(canvas as LayoutCanvas).zineTextBoxes = boxes
+    return canvas
+  }
+
+  const recordBox = (
+    block: ZineTextBlock,
+    lines: string[],
+    x: number,
+    baseline: number,
+    fontPx: number,
+    lineHeight: number,
+    align: CanvasTextAlign,
+  ) => {
+    let width = 0
+    for (const line of lines) width = Math.max(width, ctx.measureText(line).width)
+    let left = x
+    if (align === 'right') left -= width
+    else if (align === 'center') left -= width / 2
+    const height = fontPx * 0.84 + Math.max(0, lines.length - 1) * lineHeight + fontPx * 0.16
+    boxes[block] = { x: left / W, y: (baseline - fontPx * 0.84) / H, w: width / W, h: height / H }
+  }
+
+  type BlockFallback = { color: string; font: string; weight: number; italic?: boolean; align: CanvasTextAlign }
+
+  const blockStyle = (block: ZineTextBlock, fallback: BlockFallback) => {
+    const t = tt(block)
+    return {
+      color: t.color ?? fallback.color,
+      font: t.font ?? fallback.font,
+      weight: t.weight ?? fallback.weight,
+      italic: t.italic ?? fallback.italic ?? false,
+      align: (t.align ?? fallback.align) as CanvasTextAlign,
+      scale: t.scale,
+    }
+  }
 
   if (config.format === 'zine-page' && zineLayout !== 'standard') {
     if (zineLayout === 'full') {
@@ -692,26 +776,46 @@ export async function renderLayout(config: LayoutConfig, images: Record<string, 
       ctx.textAlign = 'right'
       ctx.fillText(config.issue.toUpperCase(), W - margin, margin * 0.82)
       const ht = tt('headline')
-      ctx.textAlign = 'left'
-      setFont(config.displayFont, W * 0.122 * scale * ht.scale, 500)
+      const hs = blockStyle('headline', { color: '#f4efe4', font: config.displayFont, weight: 500, align: 'left' })
+      ctx.fillStyle = hs.color
+      ctx.textAlign = hs.align
+      const hSize = W * 0.122 * scale * hs.scale
+      const hStep = W * 0.115 * scale * hs.scale
+      setFont(hs.font, hSize, hs.weight, hs.italic)
       const lines = wrapText(ctx, config.headline.toUpperCase(), W * 0.78)
       lines.forEach((line, i) => {
-        ctx.fillText(line, ht.x * W, ht.y * H + i * W * 0.115 * scale * ht.scale)
+        ctx.fillText(line, ht.x * W, ht.y * H + i * hStep)
       })
+      recordBox('headline', lines, ht.x * W, ht.y * H, hSize, hStep, hs.align)
       ctx.fillStyle = accent
-      ctx.fillRect(ht.x * W, ht.y * H + lines.length * W * 0.115 * scale * ht.scale + H * 0.012, W * 0.14, Math.max(1, H * 0.003))
+      ctx.fillRect(ht.x * W, ht.y * H + lines.length * hStep + H * 0.012, W * 0.14, Math.max(1, H * 0.003))
       const st = tt('subhead')
-      ctx.fillStyle = '#f4efe4'
-      setFont(config.bodyFont, W * 0.016 * st.scale, 400)
-      drawParagraph(ctx, config.subhead, st.x * W, st.y * H, W * 0.58, W * 0.023 * st.scale, 2)
-      setFont(config.bodyFont, W * 0.0085, 500)
+      const ss = blockStyle('subhead', { color: '#f4efe4', font: config.bodyFont, weight: 400, align: 'left' })
+      ctx.fillStyle = ss.color
+      ctx.textAlign = ss.align
+      const sSize = W * 0.016 * ss.scale
+      const sStep = W * 0.023 * ss.scale
+      setFont(ss.font, sSize, ss.weight, ss.italic)
+      const sLines = wrapText(ctx, config.subhead, W * 0.58).slice(0, 2)
+      drawParagraph(ctx, config.subhead, st.x * W, st.y * H, W * 0.58, sStep, 2)
+      recordBox('subhead', sLines, st.x * W, st.y * H, sSize, sStep, ss.align)
       const ct = tt('caption')
-      ctx.textAlign = 'left'
+      const cs = blockStyle('caption', { color: '#f4efe4', font: config.bodyFont, weight: 500, align: 'left' })
+      ctx.fillStyle = cs.color
+      ctx.textAlign = cs.align
+      const cSize = W * 0.0085 * cs.scale
+      setFont(cs.font, cSize, cs.weight, cs.italic)
       ctx.fillText(config.caption, ct.x * W, ct.y * H)
+      recordBox('caption', [config.caption], ct.x * W, ct.y * H, cSize, cSize * 1.1, cs.align)
       const nt = tt('note')
-      ctx.textAlign = 'right'
+      const ns = blockStyle('note', { color: '#f4efe4', font: config.bodyFont, weight: 500, align: 'right' })
+      ctx.fillStyle = ns.color
+      ctx.textAlign = ns.align
+      const nSize = W * 0.0085 * ns.scale
+      setFont(ns.font, nSize, ns.weight, ns.italic)
       ctx.fillText(config.note, nt.x * W, nt.y * H)
-      return canvas
+      recordBox('note', [config.note], nt.x * W, nt.y * H, nSize, nSize * 1.1, ns.align)
+      return finish()
     }
 
     if (zineLayout === 'split') {
@@ -736,28 +840,56 @@ export async function renderLayout(config: LayoutConfig, images: Record<string, 
       ctx.textAlign = 'right'
       ctx.fillText(config.issue.toUpperCase(), W - margin, margin * 0.72)
       const ht = tt('headline')
-      ctx.textAlign = 'left'
-      setFont(config.displayFont, W * 0.076 * scale * ht.scale, 500)
+      const hs = blockStyle('headline', { color: ink, font: config.displayFont, weight: 500, align: 'left' })
+      ctx.fillStyle = hs.color
+      ctx.textAlign = hs.align
+      const hSize = W * 0.076 * scale * hs.scale
+      const hStep = W * 0.08 * scale * hs.scale
+      setFont(hs.font, hSize, hs.weight, hs.italic)
       const lines = wrapText(ctx, config.headline.toUpperCase(), W * 0.36)
       lines.forEach((line, i) => {
-        ctx.fillText(line, ht.x * W, ht.y * H + i * W * 0.08 * scale * ht.scale)
+        ctx.fillText(line, ht.x * W, ht.y * H + i * hStep)
       })
+      recordBox('headline', lines, ht.x * W, ht.y * H, hSize, hStep, hs.align)
       ctx.fillStyle = accent
-      ctx.fillRect(ht.x * W, ht.y * H + lines.length * W * 0.08 * scale * ht.scale + H * 0.012, W * 0.055, Math.max(1, H * 0.0028))
+      ctx.fillRect(ht.x * W, ht.y * H + lines.length * hStep + H * 0.012, W * 0.055, Math.max(1, H * 0.0028))
       const st = tt('subhead')
-      ctx.fillStyle = ink
-      setFont(config.displayFont, W * 0.028 * st.scale, 400, true)
-      drawParagraph(ctx, config.subhead, st.x * W, st.y * H, W * 0.37, W * 0.035 * st.scale, 3)
+      const ss = blockStyle('subhead', { color: ink, font: config.displayFont, weight: 400, italic: true, align: 'left' })
+      ctx.fillStyle = ss.color
+      ctx.textAlign = ss.align
+      const sSize = W * 0.028 * ss.scale
+      const sStep = W * 0.035 * ss.scale
+      setFont(ss.font, sSize, ss.weight, ss.italic)
+      const sLines = wrapText(ctx, config.subhead, W * 0.37).slice(0, 3)
+      drawParagraph(ctx, config.subhead, st.x * W, st.y * H, W * 0.37, sStep, 3)
+      recordBox('subhead', sLines, st.x * W, st.y * H, sSize, sStep, ss.align)
       const bt = tt('body')
-      setFont(config.bodyFont, W * 0.0105 * bt.scale, 400)
-      drawParagraph(ctx, config.body, bt.x * W, bt.y * H, W * 0.36, W * 0.019 * bt.scale, 8)
+      const bs = blockStyle('body', { color: ink, font: config.bodyFont, weight: 400, align: 'left' })
+      ctx.fillStyle = bs.color
+      ctx.textAlign = bs.align
+      const bSize = W * 0.0105 * bs.scale
+      const bStep = W * 0.019 * bs.scale
+      setFont(bs.font, bSize, bs.weight, bs.italic)
+      const bLines = wrapText(ctx, config.body, W * 0.36).slice(0, 8)
+      drawParagraph(ctx, config.body, bt.x * W, bt.y * H, W * 0.36, bStep, 8)
+      recordBox('body', bLines, bt.x * W, bt.y * H, bSize, bStep, bs.align)
       const ct = tt('caption')
-      setFont(config.bodyFont, W * 0.008 * ct.scale, 500)
+      const cs = blockStyle('caption', { color: ink, font: config.bodyFont, weight: 500, align: 'left' })
+      ctx.fillStyle = cs.color
+      ctx.textAlign = cs.align
+      const cSize = W * 0.008 * cs.scale
+      setFont(cs.font, cSize, cs.weight, cs.italic)
       ctx.fillText(config.caption, ct.x * W, ct.y * H)
+      recordBox('caption', [config.caption], ct.x * W, ct.y * H, cSize, cSize * 1.1, cs.align)
       const nt = tt('note')
-      setFont(config.bodyFont, W * 0.0075 * nt.scale, 400)
+      const ns = blockStyle('note', { color: ink, font: config.bodyFont, weight: 400, align: 'left' })
+      ctx.fillStyle = ns.color
+      ctx.textAlign = ns.align
+      const nSize = W * 0.0075 * ns.scale
+      setFont(ns.font, nSize, ns.weight, ns.italic)
       ctx.fillText(config.note, nt.x * W, nt.y * H)
-      return canvas
+      recordBox('note', [config.note], nt.x * W, nt.y * H, nSize, nSize * 1.1, ns.align)
+      return finish()
     }
 
     // quiet
@@ -778,28 +910,56 @@ export async function renderLayout(config: LayoutConfig, images: Record<string, 
     ctx.textAlign = 'right'
     ctx.fillText(config.issue.toUpperCase(), W - margin, margin * 0.7)
     const ht = tt('headline')
-    ctx.textAlign = 'left'
-    setFont(config.displayFont, W * 0.1 * scale * ht.scale, 500)
+    const hs = blockStyle('headline', { color: ink, font: config.displayFont, weight: 500, align: 'left' })
+    ctx.fillStyle = hs.color
+    ctx.textAlign = hs.align
+    const hSize = W * 0.1 * scale * hs.scale
+    const hStep = W * 0.1 * scale * hs.scale
+    setFont(hs.font, hSize, hs.weight, hs.italic)
     const lines = wrapText(ctx, config.headline.toUpperCase(), W * 0.8)
     lines.forEach((line, i) => {
-      ctx.fillText(line, ht.x * W, ht.y * H + i * W * 0.1 * scale * ht.scale)
+      ctx.fillText(line, ht.x * W, ht.y * H + i * hStep)
     })
+    recordBox('headline', lines, ht.x * W, ht.y * H, hSize, hStep, hs.align)
     ctx.fillStyle = accent
-    ctx.fillRect(ht.x * W, ht.y * H + lines.length * W * 0.1 * scale * ht.scale + H * 0.02, W * 0.14, Math.max(1, H * 0.003))
+    ctx.fillRect(ht.x * W, ht.y * H + lines.length * hStep + H * 0.02, W * 0.14, Math.max(1, H * 0.003))
     const st = tt('subhead')
-    ctx.fillStyle = ink
-    setFont(config.displayFont, W * 0.026 * st.scale, 400, true)
-    drawParagraph(ctx, config.subhead, st.x * W, st.y * H, W * 0.74, W * 0.032 * st.scale, 3)
+    const ss = blockStyle('subhead', { color: ink, font: config.displayFont, weight: 400, italic: true, align: 'left' })
+    ctx.fillStyle = ss.color
+    ctx.textAlign = ss.align
+    const sSize = W * 0.026 * ss.scale
+    const sStep = W * 0.032 * ss.scale
+    setFont(ss.font, sSize, ss.weight, ss.italic)
+    const sLines = wrapText(ctx, config.subhead, W * 0.74).slice(0, 3)
+    drawParagraph(ctx, config.subhead, st.x * W, st.y * H, W * 0.74, sStep, 3)
+    recordBox('subhead', sLines, st.x * W, st.y * H, sSize, sStep, ss.align)
     const bt = tt('body')
-    setFont(config.bodyFont, W * 0.0095 * bt.scale, 400)
-    drawParagraph(ctx, config.body, bt.x * W, bt.y * H, W * 0.62, W * 0.017 * bt.scale, 5)
+    const bs = blockStyle('body', { color: ink, font: config.bodyFont, weight: 400, align: 'left' })
+    ctx.fillStyle = bs.color
+    ctx.textAlign = bs.align
+    const bSize = W * 0.0095 * bs.scale
+    const bStep = W * 0.017 * bs.scale
+    setFont(bs.font, bSize, bs.weight, bs.italic)
+    const bLines = wrapText(ctx, config.body, W * 0.62).slice(0, 5)
+    drawParagraph(ctx, config.body, bt.x * W, bt.y * H, W * 0.62, bStep, 5)
+    recordBox('body', bLines, bt.x * W, bt.y * H, bSize, bStep, bs.align)
     const ct = tt('caption')
-    setFont(config.bodyFont, W * 0.0085 * ct.scale, 500)
+    const cs = blockStyle('caption', { color: ink, font: config.bodyFont, weight: 500, align: 'left' })
+    ctx.fillStyle = cs.color
+    ctx.textAlign = cs.align
+    const cSize = W * 0.0085 * cs.scale
+    setFont(cs.font, cSize, cs.weight, cs.italic)
     ctx.fillText(config.caption, ct.x * W, ct.y * H)
+    recordBox('caption', [config.caption], ct.x * W, ct.y * H, cSize, cSize * 1.1, cs.align)
     const nt = tt('note')
-    ctx.textAlign = 'right'
+    const ns = blockStyle('note', { color: ink, font: config.bodyFont, weight: 500, align: 'right' })
+    ctx.fillStyle = ns.color
+    ctx.textAlign = ns.align
+    const nSize = W * 0.0085 * ns.scale
+    setFont(ns.font, nSize, ns.weight, ns.italic)
     ctx.fillText(config.note, nt.x * W, nt.y * H)
-    return canvas
+    recordBox('note', [config.note], nt.x * W, nt.y * H, nSize, nSize * 1.1, ns.align)
+    return finish()
   }
 
   ctx.fillStyle = paper
@@ -822,35 +982,58 @@ export async function renderLayout(config: LayoutConfig, images: Record<string, 
     ctx.restore()
   }
   const ht = tt('headline')
-  ctx.fillStyle = ink
-  ctx.textAlign = align
-  setFont(config.displayFont, W * 0.16 * scale * ht.scale, 500)
+  const hs = blockStyle('headline', { color: ink, font: config.displayFont, weight: 500, align })
+  ctx.fillStyle = hs.color
+  ctx.textAlign = hs.align
+  const hSize = W * 0.16 * scale * hs.scale
+  const hStep = W * 0.15 * scale * hs.scale
+  setFont(hs.font, hSize, hs.weight, hs.italic)
   const headlineLines = wrapText(ctx, config.headline.toUpperCase(), W * 0.84)
-  headlineLines.forEach((line, i) => ctx.fillText(line, ht.x * W, ht.y * H + i * W * 0.15 * scale * ht.scale))
+  headlineLines.forEach((line, i) => ctx.fillText(line, ht.x * W, ht.y * H + i * hStep))
+  recordBox('headline', headlineLines, ht.x * W, ht.y * H, hSize, hStep, hs.align)
   ctx.fillStyle = ink
   ctx.textAlign = 'left'
   setFont(config.bodyFont, W * 0.009, 400)
   ctx.fillText(config.brand.toUpperCase(), margin, H * 0.035)
   ctx.textAlign = 'right'
   ctx.fillText(config.issue.toUpperCase(), W - margin, H * 0.035)
-  ctx.textAlign = 'left'
   const bt = tt('body')
-  setFont(config.bodyFont, W * 0.011 * bt.scale, 400)
-  drawParagraph(ctx, config.body, bt.x * W, bt.y * H, W * 0.5, W * 0.018 * bt.scale, 5)
+  const bs = blockStyle('body', { color: ink, font: config.bodyFont, weight: 400, align: 'left' })
+  ctx.fillStyle = bs.color
+  ctx.textAlign = bs.align
+  const bSize = W * 0.011 * bs.scale
+  const bStep = W * 0.018 * bs.scale
+  setFont(bs.font, bSize, bs.weight, bs.italic)
+  const bodyLines = wrapText(ctx, config.body, W * 0.5).slice(0, 5)
+  drawParagraph(ctx, config.body, bt.x * W, bt.y * H, W * 0.5, bStep, 5)
+  recordBox('body', bodyLines, bt.x * W, bt.y * H, bSize, bStep, bs.align)
   ctx.fillStyle = accent
   ctx.fillRect(margin, H * 0.91, W * 0.18, Math.max(1, H * 0.003))
   const ct = tt('caption')
-  ctx.fillStyle = ink
-  setFont(config.bodyFont, W * 0.009 * ct.scale, 500)
+  const cs = blockStyle('caption', { color: ink, font: config.bodyFont, weight: 500, align: 'left' })
+  ctx.fillStyle = cs.color
+  ctx.textAlign = cs.align
+  const cSize = W * 0.009 * cs.scale
+  setFont(cs.font, cSize, cs.weight, cs.italic)
   ctx.fillText(config.caption, ct.x * W, ct.y * H)
+  recordBox('caption', [config.caption], ct.x * W, ct.y * H, cSize, cSize * 1.1, cs.align)
   const nt = tt('note')
-  ctx.textAlign = 'right'
+  const ns = blockStyle('note', { color: ink, font: config.bodyFont, weight: 500, align: 'right' })
+  ctx.fillStyle = ns.color
+  ctx.textAlign = ns.align
+  const nSize = W * 0.009 * ns.scale
+  setFont(ns.font, nSize, ns.weight, ns.italic)
   ctx.fillText(config.note, nt.x * W, nt.y * H)
-  ctx.textAlign = 'left'
+  recordBox('note', [config.note], nt.x * W, nt.y * H, nSize, nSize * 1.1, ns.align)
   const st = tt('subhead')
-  setFont(config.displayFont, W * 0.045 * st.scale, 400, true)
+  const ss = blockStyle('subhead', { color: ink, font: config.displayFont, weight: 400, italic: true, align: 'left' })
+  ctx.fillStyle = ss.color
+  ctx.textAlign = ss.align
+  const sSize = W * 0.045 * ss.scale
+  setFont(ss.font, sSize, ss.weight, ss.italic)
   ctx.fillText(config.subhead, st.x * W, st.y * H)
-  return canvas
+  recordBox('subhead', [config.subhead], st.x * W, st.y * H, sSize, sSize * 1.1, ss.align)
+  return finish()
 }
 
 export async function loadImageMap(ids: (string | undefined)[], assets: { id: string; src: string }[]): Promise<Record<string, HTMLImageElement | undefined>> {

@@ -7,7 +7,7 @@ import { PageHeader, Modal, ImagePlate, CopyButton, Slider } from '../components
 import { UploadPlate } from '../components/UploadPlate'
 import { useApp, uid } from '../lib/store'
 import { FONT_LIBRARY } from '../lib/presets'
-import { LAYOUT_SIZES, loadImageMap, renderLayout, type LayoutConfig } from '../lib/imaging'
+import { LAYOUT_SIZES, loadImageMap, renderLayout, type LayoutCanvas, type LayoutConfig, type ZineTextRect } from '../lib/imaging'
 import { canvasToBlob, downloadBlob } from '../lib/imageStore'
 import { MAGAZINE_PRESETS, buildMagazinePages } from '../lib/magazine'
 import { LAYOUT_BLOCK_MAP, ZINE_TEXT_BLOCKS, textTransform } from '../lib/zineText'
@@ -109,8 +109,11 @@ export function ZineStudio() {
   const [publishProgress, setPublishProgress] = useState('')
   const [draggingBlock, setDraggingBlock] = useState<ZineTextBlock | null>(null)
   const [canvasBox, setCanvasBox] = useState({ left: 0, top: 0, width: 0, height: 0 })
+  const [textBoxes, setTextBoxes] = useState<Partial<Record<ZineTextBlock, ZineTextRect>>>({})
+  const [showTextTools, setShowTextTools] = useState(false)
   const previewRef = useRef<HTMLCanvasElement>(null)
   const canvasWrapRef = useRef<HTMLDivElement>(null)
+  const textFieldRefs = useRef<Partial<Record<ZineTextBlock, HTMLTextAreaElement | HTMLInputElement | null>>>({})
   const page = zinePages.find((p) => p.id === selectedId) ?? zinePages[0]
   const imageAssets = useMemo(() => assets.filter((a) => a.kind !== 'layout' || a.source === 'seed'), [assets])
   const activePreset = MAGAZINE_PRESETS[0]
@@ -147,6 +150,7 @@ export function ZineStudio() {
         const ctx = canvas.getContext('2d')!
         ctx.clearRect(0, 0, canvas.width, canvas.height)
         ctx.drawImage(rendered, 0, 0)
+        setTextBoxes((rendered as LayoutCanvas).zineTextBoxes ?? {})
       } catch {
         /* fonts or source images may still be loading */
       }
@@ -185,6 +189,11 @@ export function ZineStudio() {
       observer.disconnect()
       window.removeEventListener('resize', measure)
     }
+  }, [page?.id])
+
+  useEffect(() => {
+    setTextBoxes({})
+    setShowTextTools(false)
   }, [page?.id])
 
   const patch = (p: Partial<ZinePage>) => {
@@ -312,10 +321,27 @@ export function ZineStudio() {
     return counts
   }, [zinePages])
 
-  const pageLayout: ZinePageLayout = page?.layout ?? 'standard'
-  const hasFormControls = !!page && page.template !== 'cover' && page.template !== 'back'
+  const pageLayout: ZinePageLayout = page?.template === 'cover' || page?.template === 'back' ? 'standard' : page?.layout ?? 'standard'
+  const hasPageForms = !!page && page.template !== 'cover' && page.template !== 'back'
+  const hasTypeControls = !!page && page.template !== 'back'
   const textBlocks = LAYOUT_BLOCK_MAP[pageLayout] ?? LAYOUT_BLOCK_MAP.standard
   const activeTransform = textTransform(pageLayout, page?.text, activeTextBlock)
+  const activeTextRect = textBoxes[activeTextBlock]
+  const defaultTextColor = pageLayout === 'full' ? '#f4efe4' : page?.palette[1] ?? '#171512'
+  const effectiveTextColor = activeTransform.color ?? defaultTextColor
+  const effectiveTextFont = activeTransform.font ?? (
+    activeTextBlock === 'headline' || activeTextBlock === 'subhead'
+      ? typePairing?.display ?? FONT_LIBRARY[0].name
+      : typePairing?.body ?? FONT_LIBRARY[2].name
+  )
+  const effectiveTextWeight = activeTransform.weight ?? (activeTextBlock === 'headline' || activeTextBlock === 'caption' || activeTextBlock === 'note' ? 500 : 400)
+  const effectiveTextItalic = activeTransform.italic ?? (activeTextBlock === 'subhead' && pageLayout !== 'full')
+  const effectiveTextAlign = activeTransform.align ?? (activeTextBlock === 'note' && pageLayout !== 'split' ? 'right' : 'left')
+  const textToolbarStyle = activeTextRect
+    ? (activeTextRect.y + activeTextRect.h) < 0.55
+      ? { top: `${Math.min(86, (activeTextRect.y + activeTextRect.h + 0.015) * 100)}%`, bottom: 'auto' }
+      : { bottom: `${Math.min(86, (1 - activeTextRect.y + 0.015) * 100)}%`, top: 'auto' }
+    : undefined
   const targetPages = Math.max(1, zineIssue.targetPages || 20)
   const progressPercent = Math.min(100, Math.round((zinePages.length / targetPages) * 100))
   const issueCover = zinePages[0]
@@ -382,6 +408,24 @@ export function ZineStudio() {
     }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
+  }
+
+  const selectTextAt = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (!page || !hasTypeControls) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    const nx = (event.clientX - rect.left) / rect.width
+    const ny = (event.clientY - rect.top) / rect.height
+    const pad = 0.008
+    const hit = (Object.entries(textBoxes) as [ZineTextBlock, ZineTextRect][])
+      .filter(([, box]) =>
+        nx >= box.x - pad && nx <= box.x + box.w + pad &&
+        ny >= box.y - pad && ny <= box.y + box.h + pad,
+      )
+      .sort((a, b) => a[1].w * a[1].h - b[1].w * b[1].h)[0]?.[0]
+    if (!hit) return
+    setActiveTextBlock(hit)
+    setShowTextTools(true)
+    requestAnimationFrame(() => textFieldRefs.current[hit]?.focus())
   }
 
   const publishIssue = async (mode: 'open' | 'download') => {
@@ -529,6 +573,7 @@ export function ZineStudio() {
                 <div>
                   <span className="mono-xs accent">{TEMPLATE_LABELS[page.template]} / PLATE {String(zinePages.findIndex((p) => p.id === page.id) + 1).padStart(2, '0')}</span>
                   <span className="mono-xs muted" style={{ marginLeft: 14 }}>{sizeFor(page.template).label}</span>
+                  {hasTypeControls && <span className="mono-xs accent" style={{ marginLeft: 14 }}>CLICK TEXT ON THE PAGE TO EDIT</span>}
                 </div>
                 <div className="stage-tools">
                   <button className="icon-btn tooltip" data-tip="Move earlier" onClick={() => moveZinePage(page.id, -1)}><ArrowUp size={12} /></button>
@@ -538,12 +583,27 @@ export function ZineStudio() {
                 </div>
               </div>
               <div className="zine-canvas-wrap" ref={canvasWrapRef}>
-                <canvas ref={previewRef} className="zine-canvas" />
-                {hasFormControls && canvasBox.width > 0 && (
+                <canvas
+                  ref={previewRef}
+                  className={`zine-canvas ${hasTypeControls ? 'zine-canvas--editable' : ''}`}
+                  onClick={selectTextAt}
+                />
+                {hasTypeControls && canvasBox.width > 0 && (
                   <div
                     className="zine-drag-layer"
                     style={{ left: canvasBox.left, top: canvasBox.top, width: canvasBox.width, height: canvasBox.height }}
                   >
+                    {activeTextRect && (
+                      <div
+                        className="zine-text-selection"
+                        style={{
+                          left: `${activeTextRect.x * 100}%`,
+                          top: `${activeTextRect.y * 100}%`,
+                          width: `${activeTextRect.w * 100}%`,
+                          height: `${activeTextRect.h * 100}%`,
+                        }}
+                      />
+                    )}
                     <button
                       type="button"
                       className={`zine-drag-pin ${draggingBlock === activeTextBlock ? 'is-dragging' : ''}`}
@@ -553,6 +613,72 @@ export function ZineStudio() {
                       <span className="zine-drag-dot" />
                       <span>{draggingBlock === activeTextBlock ? 'MOVING' : 'DRAG'} / {ZINE_TEXT_BLOCKS.find((b) => b.key === activeTextBlock)?.label ?? activeTextBlock}</span>
                     </button>
+                    {showTextTools && (
+                      <div className="zine-text-toolbar" style={textToolbarStyle} onPointerDown={(event) => event.stopPropagation()}>
+                        <span className="zine-text-toolbar-title">{ZINE_TEXT_BLOCKS.find((b) => b.key === activeTextBlock)?.label ?? activeTextBlock}</span>
+                        <button
+                          type="button"
+                          className="zine-tool-btn"
+                          title="Make smaller"
+                          onClick={() => patchText({ scale: Math.max(0.4, Number((activeTransform.scale - 0.05).toFixed(2))) })}
+                        >A−</button>
+                        <span className="zine-tool-value">{Math.round(activeTransform.scale * 100)}%</span>
+                        <button
+                          type="button"
+                          className="zine-tool-btn"
+                          title="Make larger"
+                          onClick={() => patchText({ scale: Math.min(2.6, Number((activeTransform.scale + 0.05).toFixed(2))) })}
+                        >A+</button>
+                        <label className="zine-tool-color" title="Text colour">
+                          <span style={{ background: effectiveTextColor }} />
+                          <input type="color" value={effectiveTextColor} onChange={(event) => patchText({ color: event.target.value })} />
+                        </label>
+                        <select
+                          className="zine-tool-select"
+                          title="Font"
+                          value={activeTransform.font ?? ''}
+                          onChange={(event) => patchText({ font: event.target.value || undefined })}
+                        >
+                          <option value="">DEFAULT FONT</option>
+                          {FONT_LIBRARY.map((font) => (
+                            <option key={font.name} value={font.name} style={{ fontFamily: font.css }}>{font.name}</option>
+                          ))}
+                        </select>
+                        <select
+                          className="zine-tool-select zine-tool-weight"
+                          title="Weight"
+                          value={activeTransform.weight?.toString() ?? ''}
+                          onChange={(event) => patchText({ weight: event.target.value ? Number(event.target.value) : undefined })}
+                        >
+                          <option value="">WEIGHT</option>
+                          {[300, 400, 500, 600, 700, 800, 900].map((weight) => (
+                            <option key={weight} value={weight}>{weight}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          className={`zine-tool-btn zine-tool-italic ${effectiveTextItalic ? 'active' : ''}`}
+                          title="Italic"
+                          onClick={() => patchText({ italic: !effectiveTextItalic })}
+                        ><em>I</em></button>
+                        <span className="zine-tool-group" title="Alignment">
+                          {(['left', 'center', 'right'] as const).map((alignment) => (
+                            <button
+                              key={alignment}
+                              type="button"
+                              className={`zine-tool-btn ${effectiveTextAlign === alignment ? 'active' : ''}`}
+                              onClick={() => patchText({ align: alignment })}
+                            >{alignment === 'left' ? 'L' : alignment === 'center' ? 'C' : 'R'}</button>
+                          ))}
+                        </span>
+                        <button
+                          type="button"
+                          className="zine-tool-btn zine-tool-words"
+                          onClick={() => textFieldRefs.current[activeTextBlock]?.focus()}
+                        >EDIT WORDS</button>
+                        <button type="button" className="zine-tool-btn zine-tool-close" title="Close" onClick={() => setShowTextTools(false)}>×</button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -598,7 +724,7 @@ export function ZineStudio() {
                 </div>
               </div>
 
-              {hasFormControls && (
+              {hasPageForms && (
                 <div className="zine-block">
                   <div className="block-label">02 / PAGE FORM</div>
                   <div className="seg zine-layout-seg">
@@ -617,7 +743,7 @@ export function ZineStudio() {
                 </div>
               )}
 
-              {hasFormControls && (
+              {hasTypeControls && (
                 <div className="zine-block">
                   <div className="block-label">03 / TYPE POSITION</div>
                   <div className="zine-text-tabs">
@@ -625,7 +751,10 @@ export function ZineStudio() {
                       <button
                         key={block}
                         className={activeTextBlock === block ? 'active' : ''}
-                        onClick={() => setActiveTextBlock(block)}
+                        onClick={() => {
+                          setActiveTextBlock(block)
+                          setShowTextTools(true)
+                        }}
                       >{ZINE_TEXT_BLOCKS.find((b) => b.key === block)?.label ?? block}</button>
                     ))}
                   </div>
@@ -667,6 +796,39 @@ export function ZineStudio() {
                     high="ENLARGE"
                     format={(v) => `${v}%`}
                   />
+                  <div className="zine-type-style-row">
+                    <label className="zine-type-color">COLOUR<input type="color" value={effectiveTextColor} onChange={(event) => patchText({ color: event.target.value })} /></label>
+                    <label className="zine-type-font">FONT
+                      <select value={activeTransform.font ?? ''} onChange={(event) => patchText({ font: event.target.value || undefined })}>
+                        <option value="">PAGE DEFAULT</option>
+                        {FONT_LIBRARY.map((font) => <option key={font.name} value={font.name}>{font.name}</option>)}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="zine-type-style-row">
+                    <label>WEIGHT
+                      <select value={activeTransform.weight?.toString() ?? ''} onChange={(event) => patchText({ weight: event.target.value ? Number(event.target.value) : undefined })}>
+                        <option value="">PAGE DEFAULT</option>
+                        {[300, 400, 500, 600, 700, 800, 900].map((weight) => <option key={weight} value={weight}>{weight}</option>)}
+                      </select>
+                    </label>
+                    <div className="zine-type-align">
+                      <span>ALIGN</span>
+                      <div>
+                        {(['left', 'center', 'right'] as const).map((alignment) => (
+                          <button
+                            key={alignment}
+                            className={effectiveTextAlign === alignment ? 'active' : ''}
+                            onClick={() => patchText({ align: alignment })}
+                          >{alignment === 'left' ? 'L' : alignment === 'center' ? 'C' : 'R'}</button>
+                        ))}
+                        <button
+                          className={effectiveTextItalic ? 'active' : ''}
+                          onClick={() => patchText({ italic: !effectiveTextItalic })}
+                        ><em>I</em></button>
+                      </div>
+                    </div>
+                  </div>
                   <div className="zine-text-actions">
                     <button className="mini-link" onClick={() => {
                       if (!page) return
@@ -681,16 +843,16 @@ export function ZineStudio() {
               )}
 
               <div className="zine-block">
-                <div className="block-label">{page.template === 'cover' || page.template === 'back' ? '02' : '04'} / WORDS</div>
-                <div className="field"><label>HEADLINE</label><textarea className="textarea" rows={2} value={page.headline} onChange={(e) => patch({ headline: e.target.value })} /></div>
-                <div className="field"><label>SUBHEAD</label><textarea className="textarea" rows={2} value={page.subhead} onChange={(e) => patch({ subhead: e.target.value })} /></div>
-                <div className="field"><label>BODY</label><textarea className="textarea" rows={5} value={page.body} onChange={(e) => patch({ body: e.target.value })} /></div>
-                <div className="field"><label>CAPTION</label><input className="input" value={page.caption} onChange={(e) => patch({ caption: e.target.value })} /></div>
-                <div className="field"><label>NOTE / ISSUE LINE</label><input className="input" value={page.note} onChange={(e) => patch({ note: e.target.value })} /></div>
+                <div className="block-label">{hasTypeControls ? '04' : '02'} / WORDS</div>
+                <div className="field"><label>HEADLINE</label><textarea ref={(el) => { textFieldRefs.current.headline = el }} className="textarea" rows={2} value={page.headline} onChange={(e) => patch({ headline: e.target.value })} /></div>
+                <div className="field"><label>SUBHEAD</label><textarea ref={(el) => { textFieldRefs.current.subhead = el }} className="textarea" rows={2} value={page.subhead} onChange={(e) => patch({ subhead: e.target.value })} /></div>
+                <div className="field"><label>BODY</label><textarea ref={(el) => { textFieldRefs.current.body = el }} className="textarea" rows={5} value={page.body} onChange={(e) => patch({ body: e.target.value })} /></div>
+                <div className="field"><label>CAPTION</label><input ref={(el) => { textFieldRefs.current.caption = el }} className="input" value={page.caption} onChange={(e) => patch({ caption: e.target.value })} /></div>
+                <div className="field"><label>NOTE / ISSUE LINE</label><input ref={(el) => { textFieldRefs.current.note = el }} className="input" value={page.note} onChange={(e) => patch({ note: e.target.value })} /></div>
               </div>
 
               <div className="zine-block">
-                <div className="block-label">{hasFormControls ? '05' : '03'} / IMAGE PLATES</div>
+                <div className="block-label">{hasTypeControls ? '05' : '03'} / IMAGE PLATES</div>
                 <div className="zine-image-slots">
                   <button className="zine-image-slot" onClick={() => setPicker('primary')}>
                     {page.imageId ? <img src={assets.find((a) => a.id === page.imageId)?.src} alt="" /> : <ImageIcon size={15} />}
@@ -709,7 +871,7 @@ export function ZineStudio() {
               </div>
 
               <div className="zine-block">
-                <div className="block-label">{hasFormControls ? '06' : '04'} / INK & PAPER</div>
+                <div className="block-label">{hasTypeControls ? '06' : '04'} / INK & PAPER</div>
                 <div className="colour-row">
                   <label>PAPER<input type="color" value={page.palette[0] ?? DEFAULT_PALETTE[0]} onChange={(e) => setPalette(0, e.target.value)} /></label>
                   <label>INK<input type="color" value={page.palette[1] ?? DEFAULT_PALETTE[1]} onChange={(e) => setPalette(1, e.target.value)} /></label>
