@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.log
+*.tsbuildinfo
+.campaign04-server.pid
+.campaign04-server.log
